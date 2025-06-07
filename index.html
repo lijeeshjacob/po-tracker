@@ -1,167 +1,73 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>PO Tracker</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-    th { background-color: #f4f4f4; }
-    input, select { padding: 5px; margin: 5px; }
-    .form-section { margin-bottom: 20px; }
-    .btn { padding: 6px 12px; cursor: pointer; }
-    .edit-btn { background-color: orange; color: white; border: none; }
-    .delete-btn { background-color: red; color: white; border: none; }
-  </style>
-</head>
-<body>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body { font-family: Arial; padding: 20px; }
+      table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+      th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+      th { background: #f2f2f2; }
+      input, button { padding: 6px; margin: 4px 0; }
+      input[type="date"] { width: 160px; }
+    </style>
+  </head>
+  <body>
+    <h2>PO Tracker</h2>
+    <form id="poForm">
+      <input type="text" id="PO Number" placeholder="PO Number" required>
+      <input type="text" id="Supplier" placeholder="Supplier" required>
+      <input type="date" id="Delivery Date" required>
+      <input type="text" id="Status" placeholder="Status">
+      <br>
+      <button type="submit">Add PO</button>
+    </form>
 
-<h2>Purchase Order Tracker</h2>
+    <table id="poTable">
+      <thead>
+        <tr>
+          <th>PO Number</th>
+          <th>Supplier</th>
+          <th>Delivery Date</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
 
-<div class="form-section">
-  <form id="poForm">
-    <input type="hidden" id="id" />
-    <label>PO Number: <input type="text" id="poNumber" required /></label>
-    <label>Supplier: <input type="text" id="supplier" required /></label>
-    <label>Item: <input type="text" id="item" required /></label>
-    <label>Qty: <input type="number" id="quantity" required /></label>
-    <label>Delivery Date: <input type="date" id="deliveryDate" required /></label>
-    <label>Reminder Days: <input type="number" id="reminderDays" required /></label>
-    <label>Status: 
-      <select id="status">
-        <option value="Pending">Pending</option>
-        <option value="Delivered">Delivered</option>
-      </select>
-    </label>
-    <button class="btn" type="submit">Save PO</button>
-  </form>
-</div>
-
-<table id="poTable">
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>PO Number</th>
-      <th>Supplier</th>
-      <th>Item</th>
-      <th>Qty</th>
-      <th>Delivery Date</th>
-      <th>Reminder Days</th>
-      <th>Status</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
-
-<script>
-  const sheetURL = "https://script.google.com/macros/s/AKfycbx7Q2_eGgadkjo0iCtQFzbOViSKh2p5K4GQUDuCVeotc1ytNlXNs6X7X3I_pvquEBJo/exec";
-
-  document.getElementById("poForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const formData = {
-      action: "save",
-      id: document.getElementById("id").value || null,
-      poNumber: document.getElementById("poNumber").value,
-      supplier: document.getElementById("supplier").value,
-      item: document.getElementById("item").value,
-      quantity: document.getElementById("quantity").value,
-      deliveryDate: document.getElementById("deliveryDate").value,
-      reminderDays: document.getElementById("reminderDays").value,
-      status: document.getElementById("status").value
-    };
-
-    try {
-      const response = await fetch(sheetURL, {
-        method: "POST",
-        mode: "cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
+    <script>
+      // On form submit: save PO, then reload table
+      document.getElementById('poForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const po = {
+          "PO Number": document.getElementById("PO Number").value,
+          "Supplier": document.getElementById("Supplier").value,
+          "Delivery Date": document.getElementById("Delivery Date").value,
+          "Status": document.getElementById("Status").value
+        };
+        google.script.run.withSuccessHandler(loadPOs).savePO(po);
+        this.reset();
       });
-      await response.json();
-      document.getElementById("poForm").reset();
-      loadPOs();
-    } catch (err) {
-      console.error("Error saving PO:", err);
-    }
-  });
 
-  function loadPOs() {
-    fetch(sheetURL)
-      .then(res => res.json())
-      .then(data => {
+      // Populate table with PO data
+      function loadPOs(poList) {
         const tbody = document.querySelector("#poTable tbody");
         tbody.innerHTML = "";
-        data.slice(1).forEach((row, index) => {
+        poList.forEach(po => {
           const tr = document.createElement("tr");
-          row.forEach((cell, i) => {
-            const td = document.createElement("td");
-            if (i === 5) {
-              td.textContent = formatDate(cell);
-            } else {
-              td.textContent = cell;
-            }
-            tr.appendChild(td);
-          });
-          const actions = document.createElement("td");
-          actions.innerHTML = `
-            <button class="btn edit-btn" onclick="editPO(${index + 1})">Edit</button>
-            <button class="btn delete-btn" onclick="deletePO(${row[0]})">Delete</button>
+          tr.innerHTML = `
+            <td>${po["PO Number"] || ""}</td>
+            <td>${po["Supplier"] || ""}</td>
+            <td>${po["Delivery Date"] || ""}</td>
+            <td>${po["Status"] || ""}</td>
           `;
-          tr.appendChild(actions);
           tbody.appendChild(tr);
         });
-      })
-      .catch(err => console.error("Error loading POs:", err));
-  }
+      }
 
-  function formatDate(dateStr) {
-    const date = new Date(dateStr);
-    if (!isNaN(date)) {
-      const d = String(date.getDate()).padStart(2, '0');
-      const m = String(date.getMonth() + 1).padStart(2, '0');
-      const y = date.getFullYear();
-      return `${y}-${m}-${d}`;
-    }
-    return dateStr;
-  }
-
-  function editPO(rowIndex) {
-    fetch(sheetURL)
-      .then(res => res.json())
-      .then(data => {
-        const row = data[rowIndex + 1];
-        document.getElementById("id").value = row[0];
-        document.getElementById("poNumber").value = row[1];
-        document.getElementById("supplier").value = row[2];
-        document.getElementById("item").value = row[3];
-        document.getElementById("quantity").value = row[4];
-        document.getElementById("deliveryDate").value = formatDate(row[5]);
-        document.getElementById("reminderDays").value = row[6];
-        document.getElementById("status").value = row[7];
-      });
-  }
-
-  async function deletePO(id) {
-    if (!confirm("Delete this PO?")) return;
-
-    try {
-      await fetch(sheetURL, {
-        method: "POST",
-        mode: "cors",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete", id })
-      });
-      loadPOs();
-    } catch (err) {
-      console.error("Error deleting PO:", err);
-    }
-  }
-
-  loadPOs();
-</script>
-
-</body>
+      // Load POs when page loads
+      window.onload = () => {
+        google.script.run.withSuccessHandler(loadPOs).loadPOs();
+      };
+    </script>
+  </body>
 </html>
