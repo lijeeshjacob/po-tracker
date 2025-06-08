@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PO Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #ccc;
+      padding: 6px;
+      text-align: left;
+    }
+    th {
+      cursor: pointer;
+      background: #f0f0f0;
+    }
+    .status {
+      padding: 4px 8px;
+      border-radius: 5px;
+      color: white;
+      display: inline-block;
+    }
+    .Pending { background-color: orange; }
+    .Partially { background-color: yellow; color: black; }
+    .Delivered { background-color: green; }
+    .Cancelled { background-color: gray; }
+    .Hold { background-color: blue; }
+    .Escalation { background-color: red; }
+  </style>
+</head>
+<body>
+  <h2>Procurement PO Tracker</h2>
+
+  <form id="poForm">
+    <input type="text" name="PO Number" placeholder="PO Number" required />
+    <input type="date" name="PO Created Date" required />
+    <input type="text" name="Supplier" placeholder="Supplier" required />
+    <input type="text" name="Items" placeholder="Items" required />
+    <input type="date" name="ETA for Delivery" required />
+    <input type="date" name="Follow Up on" required />
+    <select name="Status" required>
+      <option value="Pending">Pending</option>
+      <option value="Partially Delivered">Partially Delivered</option>
+      <option value="Delivered">Delivered</option>
+      <option value="Cancelled">Cancelled</option>
+      <option value="Hold">Hold</option>
+      <option value="Escalation">Escalation</option>
+    </select>
+    <input type="text" name="Remarks" placeholder="Remarks" />
+    <button type="submit">Add PO</button>
+  </form>
+
+  <button onclick="exportTableToExcel()">Export to Excel</button>
+
+  <table id="poTable">
+    <thead>
+      <tr>
+        <th onclick="sortTable(0)">PO Number</th>
+        <th onclick="sortTable(1)">PO Created Date</th>
+        <th onclick="sortTable(2)">Supplier</th>
+        <th onclick="sortTable(3)">Items</th>
+        <th onclick="sortTable(4)">ETA for Delivery</th>
+        <th onclick="sortTable(5)">Follow Up on</th>
+        <th onclick="sortTable(6)">Status</th>
+        <th onclick="sortTable(7)">Remarks</th>
+        <th>Delete</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const scriptURL = "https://script.google.com/macros/s/AKfycbxUAwvuZNGplv4qqqN8dNxeAzv0FEpP3d0ACf8uQeQZvyYO2Vrj1OBsT4qHm5Gadr5z/exec";
+
+    document.getElementById('poForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const form = new FormData(e.target);
+      fetch(scriptURL, { method: 'POST', body: form })
+        .then(response => {
+          alert('PO Added');
+          e.target.reset();
+          loadPOs();
+        })
+        .catch(error => console.error('Error saving PO:', error));
+    });
+
+    function loadPOs() {
+      fetch(scriptURL)
+        .then(res => res.json())
+        .then(data => {
+          const tbody = document.querySelector('#poTable tbody');
+          tbody.innerHTML = '';
+          data.forEach((row, index) => {
+            const tr = document.createElement('tr');
+            row.forEach((cell, i) => {
+              const td = document.createElement('td');
+              if (i === 6) {
+                td.innerHTML = `<span class="status ${formatClass(cell)}">${cell}</span>`;
+              } else {
+                td.textContent = cell;
+              }
+              tr.appendChild(td);
+            });
+            const delBtn = document.createElement('button');
+            delBtn.textContent = 'Delete';
+            delBtn.onclick = () => deletePO(index + 2);
+            const delCell = document.createElement('td');
+            delCell.appendChild(delBtn);
+            tr.appendChild(delCell);
+            tbody.appendChild(tr);
+          });
+        });
+    }
+
+    function formatClass(status) {
+      return status.replace(" ", "").replace("Delivered", "Delivered");
+    }
+
+    function deletePO(rowIndex) {
+      fetch(scriptURL + `?deleteRow=${rowIndex}`, { method: 'POST' })
+        .then(() => loadPOs())
+        .catch(err => console.error('Delete failed', err));
+    }
+
+    function sortTable(colIndex) {
+      const table = document.getElementById("poTable");
+      const rows = Array.from(table.rows).slice(1);
+      const sorted = rows.sort((a, b) => {
+        const aText = a.cells[colIndex].innerText;
+        const bText = b.cells[colIndex].innerText;
+        return aText.localeCompare(bText);
+      });
+      const tbody = table.tBodies[0];
+      tbody.innerHTML = '';
+      sorted.forEach(row => tbody.appendChild(row));
+    }
+
+    function exportTableToExcel() {
+      let table = document.getElementById("poTable");
+      let html = table.outerHTML;
+      let url = 'data:application/vnd.ms-excel,' + encodeURIComponent(html);
+      let a = document.createElement('a');
+      a.href = url;
+      a.download = 'POs.xls';
+      a.click();
+    }
+
+    window.onload = loadPOs;
+  </script>
+</body>
+</html>
